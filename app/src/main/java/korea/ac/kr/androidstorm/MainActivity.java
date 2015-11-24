@@ -2,6 +2,9 @@ package korea.ac.kr.androidstorm;
 
 import android.app.Activity;
 import android.content.Context;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Bundle;
@@ -24,6 +27,8 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
@@ -49,6 +54,7 @@ public class MainActivity extends Activity {
 
 
     RecordThread recordThread;
+    LocationThread locationThread;
 
     Socket clientSocket;
     PrintWriter writer;
@@ -56,9 +62,13 @@ public class MainActivity extends Activity {
     private static final String ADDRESS = "192.168.0.2";
     private static final int PORT = 5000;
 
+    private Map<String, Double> locationMap;
+
     public MainActivity() {
         mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
         mFileName += "/audiorecordtest.3gp";
+
+        locationMap = new HashMap<String, Double>();
     }
 
     final Runnable updater = new Runnable(){
@@ -119,9 +129,14 @@ public class MainActivity extends Activity {
                     recordThread = new RecordThread();
 
                     recordThread.start();
-                    Log.d("Noise", "restart recordThread in onClickStartRecord()");
+                    Log.d("Noise", "start recordThread in onClickStartRecord()");
                 }
 
+                if(locationThread == null){
+                    locationThread = new LocationThread();
+                    locationThread.start();
+                    Log.d("Noise", "also start locationThread in onClickStartRecord()");
+                }
                 btnStartRecord.setEnabled(false);
                 btnStopRecord.setEnabled(true);
         }
@@ -190,15 +205,21 @@ public class MainActivity extends Activity {
     }
 
 
+    /**
+     * 데이터 전송
+     */
     public void updateDb(){
         txtResultDb = (TextView) findViewById(R.id.txtResultDb);
         double dB = getAmplitudeEMA();
+        double latitude = locationMap.get("latitude") == null ? 0.00 : locationMap.get("latitude") ;
+        double longitude = locationMap.get("longitude") == null ? 0.00 : locationMap.get("longitude");
+
         if(recordThread == null){
             txtResultDb.setText("Here is result..");
         }else{
             txtResultDb.setText(Double.toString(dB) + " dB");
             if(clientSocket != null){
-                writer.println(dB);
+                writer.println(Double.toString(dB) + "," + Double.toString(latitude) + "," + Double.toString(longitude));
                 writer.flush();
             }
 
@@ -249,6 +270,61 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
 
+
+        }
+    }
+
+    class LocationThread extends Thread {
+        private LocationManager locationManager;
+        private String locationProviderNetwork = LocationManager.NETWORK_PROVIDER;
+        private String locationProviderGps = LocationManager.GPS_PROVIDER;
+
+        public void run(){
+            startLocationService();
+        }
+
+        private void startLocationService() {
+            locationManager = (LocationManager) getSystemService(getApplicationContext().LOCATION_SERVICE);
+
+            GPSListener gpsListener = new GPSListener();
+
+            try{
+                locationManager.requestLocationUpdates(locationProviderNetwork, 1000, 0, gpsListener);
+            }catch (SecurityException ex){
+                ex.printStackTrace();
+            }
+
+        }
+
+        class GPSListener implements LocationListener {
+
+            public void onLocationChanged(Location location) {
+
+                //capture location data sent by current provider
+                Double latitude = location.getLatitude();
+                Double longitude = location.getLongitude();
+
+                locationMap.put("latitude", latitude);
+                locationMap.put("longitude", longitude);
+
+                String msg = "Latitude : "+ latitude + "\nLongitude:"+ longitude;
+//                txtViewLocationInfoOne.setText(msg);
+
+                Log.i("GPSLocationService", msg);
+
+            }
+
+            public void onProviderDisabled(String provider) {
+                Toast.makeText(getApplicationContext(), "onProviderDisabled", Toast.LENGTH_LONG).show();
+            }
+
+            public void onProviderEnabled(String provider) {
+                Toast.makeText(getApplicationContext(), "onProviderEnabled", Toast.LENGTH_LONG).show();
+            }
+
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+                Toast.makeText(getApplicationContext(), "onStatusChanged", Toast.LENGTH_LONG).show();
+            }
 
         }
     }
