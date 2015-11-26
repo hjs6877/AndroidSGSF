@@ -49,4 +49,19 @@
             android:layout_height="wrap_content"
             android:text="Here is result.."/>
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="location: "/>
+
+        <TextView
+            android:id="@+id/txtResultLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Location info displays here.."/>
+    </LinearLayout>
 </LinearLayout>
